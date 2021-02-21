@@ -72,6 +72,7 @@ LOCAL void ICACHE_FLASH_ATTR parse_url(char *precv, URL_Frame *purl_frame){
     char *str = NULL;
     uint8 length = 0;
     char *pbuffer = NULL;
+    char *pbuffer2 = NULL;
     char *pbufer = NULL;
 
     if (purl_frame == NULL || precv == NULL) {
@@ -79,60 +80,62 @@ LOCAL void ICACHE_FLASH_ATTR parse_url(char *precv, URL_Frame *purl_frame){
     }
 
     pbuffer = (char *)os_strstr(precv, "Host:");
+    pbuffer2 = (char *)os_strstr(precv, "\r\n\r\n");
 
     if (pbuffer != NULL) {
         length = pbuffer - precv;
         pbufer = (char *)os_zalloc(length + 1);
         pbuffer = pbufer;
         os_memcpy(pbuffer, precv, length);
-        os_memset(purl_frame->pSelect, 0, URLSize);
-        os_memset(purl_frame->pCommand, 0, URLSize);
+        /* os_memset(purl_frame->pSelect, 0, URLSize); */
+        /* os_memset(purl_frame->pCommand, 0, URLSize); */
         os_memset(purl_frame->pFilename, 0, URLSize);
+	os_memset(purl_frame->pUID, 0, URLSize);
+	os_memset(purl_frame->pSSID, 0, URLSize);
+	os_memset(purl_frame->pPASSWORD, 0, URLSize);
 
         if (os_strncmp(pbuffer, "GET ", 4) == 0) {
             purl_frame->Type = GET;
             pbuffer += 4;
+	   
+	    pbuffer ++;
+	    //str = (char *)os_strstr(pbuffer, "?"); 
+	    str = (char *)os_strstr(pbuffer, " HTTP");
+	    if (str != NULL) {
+	        length = str - pbuffer;
+	        os_memcpy(purl_frame->pFilename, pbuffer, length);
+	    }
+
         } else if (os_strncmp(pbuffer, "POST ", 5) == 0) {
             purl_frame->Type = POST;
-            pbuffer += 5;
+
+	    str = (char *)os_strstr(pbuffer2, "=");
+	    if (str != NULL){
+		str++;
+		pbuffer2 = (char *)os_strstr(str, "&");
+		length = pbuffer2 - str;
+		os_memcpy(purl_frame->pUID, str, length);
+		/* os_printf("POST step1: %s\n", purl_frame->pUID); */
+		
+		str = (char *)os_strstr(pbuffer2, "=");
+		if (str != NULL){
+			str++;
+			pbuffer2 = (char *)os_strstr(str, "&");
+			length = pbuffer2 - str;
+			os_memcpy(purl_frame->pSSID, str, length);
+			/* os_printf("POST step2: %s\n", purl_frame->pSSID); */
+
+			str = (char *)os_strstr(pbuffer2, "=");
+			if (str != NULL) {
+			    str++;
+			    //pbuffer2 = (char *)os_strstr(str, "&");
+			    //length = pbuffer2 - str;
+			    os_memcpy(purl_frame->pPASSWORD, str, os_strlen(str) + 1);
+			    /* os_printf("POST step2: %s\n", purl_frame->pPASSWORD); */
+			}
+		}
+	    }
         }
-
-        //TODO: separate GET and POST PROCESSING
-
-        pbuffer ++;
-        //str = (char *)os_strstr(pbuffer, "?"); 
-        str = (char *)os_strstr(pbuffer, " HTTP");
-        if (str != NULL) {
-            length = str - pbuffer;
-            os_memcpy(purl_frame->pFilename, pbuffer, length);
-        }
-
-        /* if (str != NULL) {
-            length = str - pbuffer;
-            os_memcpy(purl_frame->pSelect, pbuffer, length);
-            str ++;
-            pbuffer = (char *)os_strstr(str, "=");
-
-            if (pbuffer != NULL) {
-                length = pbuffer - str;
-                os_memcpy(purl_frame->pCommand, str, length);
-                pbuffer ++;
-                str = (char *)os_strstr(pbuffer, "&");
-
-                if (str != NULL) {
-                    length = str - pbuffer;
-                    os_memcpy(purl_frame->pFilename, pbuffer, length);
-                } else {
-                    str = (char *)os_strstr(pbuffer, " HTTP");
-
-                    if (str != NULL) {
-                        length = str - pbuffer;
-                        os_memcpy(purl_frame->pFilename, pbuffer, length);
-                    }
-                }
-            }
-        } */
-
         os_free(pbufer);
     } else {
         return;
@@ -354,8 +357,10 @@ webserver_recv(void *arg, char *pusrdata, unsigned short length)
             break;
         case POST:
             os_printf("We have a POST request.\n");
-            pParseBuffer = (char *)os_strstr(precvbuffer, "\r\n\r\n");
-            os_printf("request: %s\n", pParseBuffer);
+            //pParseBuffer = (char *)os_strstr(precvbuffer, "\r\n\r\n");
+	    os_printf("UID: %s\n", pURL_Frame->pUID);
+	    os_printf("SSID: %s\n", pURL_Frame->pSSID);
+	    os_printf("UID: %s\n", pURL_Frame->pPASSWORD);
             data_send(ptrespconn, true, answer_page);
             break;
         default:

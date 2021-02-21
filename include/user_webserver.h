@@ -54,9 +54,10 @@ typedef enum _ParmType {
 
 typedef struct URL_Frame {
     enum ProtocolType Type;
-    char pSelect[URLSize];
-    char pCommand[URLSize];
     char pFilename[URLSize];
+    char pUID[URLSize];
+    char pSSID[URLSize];
+    char pPASSWORD[URLSize];
 } URL_Frame;
 
 typedef struct _rst_parm {
